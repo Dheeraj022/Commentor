@@ -15,7 +15,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { Platform } from "@/types";
-import { PlatformBadge } from "@/components/ui/PlatformBadge";
+import { PlatformBadge, PlatformIcon, SOCIAL_COLORS } from "@/components/ui/PlatformBadge";
 import {
   ResponsiveContainer,
   BarChart,
@@ -191,6 +191,59 @@ export default function SentimentReportsPage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Platform Summary Cards (Social Brand Colors) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {(["instagram", "facebook", "youtube", "linkedin"] as Platform[]).map((plt) => {
+          const item = data?.commentsByPlatform.find((c) => c.platform === plt) || {
+            platform: plt,
+            count: 0,
+            positive: 0,
+            neutral: 0,
+            negative: 0,
+          };
+          const posRate = item.count > 0 ? Math.round((item.positive / item.count) * 100) : 0;
+
+          // Brand color card borders & accents
+          let cardStyle = "border-slate-200 bg-white";
+          if (plt === "instagram") cardStyle = "border-pink-200 bg-gradient-to-br from-pink-50/40 via-white to-pink-50/10";
+          if (plt === "youtube") cardStyle = "border-red-200 bg-gradient-to-br from-red-50/40 via-white to-red-50/10";
+          if (plt === "facebook") cardStyle = "border-blue-900/30 bg-gradient-to-br from-blue-950/5 via-white to-blue-900/5";
+          if (plt === "linkedin") cardStyle = "border-blue-200 bg-gradient-to-br from-blue-50/40 via-white to-blue-50/10";
+
+          return (
+            <div key={plt} className={`p-4 rounded-xl border shadow-2xs ${cardStyle}`}>
+              <div className="flex items-center justify-between">
+                <PlatformBadge platform={plt} />
+                <span className="text-xs font-mono font-semibold text-slate-700">
+                  {item.count} {item.count === 1 ? "comment" : "comments"}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-1 text-[11px] text-center">
+                <div className="p-1.5 rounded-md bg-emerald-50/80 text-emerald-800">
+                  <div className="font-bold">{item.positive}</div>
+                  <div className="text-[10px] text-emerald-600">Pos</div>
+                </div>
+                <div className="p-1.5 rounded-md bg-slate-50 text-slate-700">
+                  <div className="font-bold">{item.neutral}</div>
+                  <div className="text-[10px] text-slate-500">Neu</div>
+                </div>
+                <div className="p-1.5 rounded-md bg-rose-50/80 text-rose-800">
+                  <div className="font-bold">{item.negative}</div>
+                  <div className="text-[10px] text-rose-600">Neg</div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Positive Reception</span>
+                <span className="font-semibold text-slate-800">{posRate}%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-1 overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${posRate}%` }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Account-by-Account Sentiment Table */}

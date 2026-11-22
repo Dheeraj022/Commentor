@@ -175,6 +175,23 @@ export default function FetchCommentsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountIds.includes(acc.id);
+
+                let selectedRing = "border-blue-500 bg-blue-50/50 shadow-2xs ring-1 ring-blue-500/20";
+                let checkBg = "bg-blue-600 border-blue-600 text-white";
+                if (acc.platform === "instagram") {
+                  selectedRing = "border-pink-400 bg-pink-50/40 shadow-2xs ring-1 ring-pink-400/30";
+                  checkBg = "bg-pink-600 border-pink-600 text-white";
+                } else if (acc.platform === "youtube") {
+                  selectedRing = "border-red-400 bg-red-50/40 shadow-2xs ring-1 ring-red-400/30";
+                  checkBg = "bg-red-600 border-red-600 text-white";
+                } else if (acc.platform === "facebook") {
+                  selectedRing = "border-blue-900/40 bg-blue-950/5 shadow-2xs ring-1 ring-blue-900/30";
+                  checkBg = "bg-blue-950 border-blue-950 text-white";
+                } else if (acc.platform === "linkedin") {
+                  selectedRing = "border-blue-500 bg-blue-50/50 shadow-2xs ring-1 ring-blue-500/30";
+                  checkBg = "bg-blue-600 border-blue-600 text-white";
+                }
+
                 return (
                   <div
                     key={acc.id}
@@ -183,14 +200,14 @@ export default function FetchCommentsPage() {
                       !acc.isActive
                         ? "opacity-50 cursor-not-allowed bg-slate-50 border-slate-200"
                         : isSelected
-                        ? "border-blue-500 bg-blue-50/50 shadow-2xs ring-1 ring-blue-500/20"
+                        ? selectedRing
                         : "border-slate-200 hover:border-slate-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <div
                         className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                          isSelected ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 bg-white"
+                          isSelected ? checkBg : "border-slate-300 bg-white"
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
@@ -202,7 +219,7 @@ export default function FetchCommentsPage() {
                         <p className="text-[11px] text-slate-500 font-mono truncate">{acc.handle}</p>
                       </div>
                     </div>
-                    <PlatformBadge platform={acc.platform} showIcon={false} />
+                    <PlatformBadge platform={acc.platform} showIcon={true} />
                   </div>
                 );
               })}

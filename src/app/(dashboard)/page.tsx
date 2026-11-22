@@ -18,7 +18,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { OverviewMetrics, Platform, SocialAccount } from "@/types";
-import { PlatformBadge } from "@/components/ui/PlatformBadge";
+import {
+  PlatformBadge,
+  PlatformIcon,
+  SOCIAL_COLORS,
+} from "@/components/ui/PlatformBadge";
 import { formatNumber, formatDate } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -44,6 +48,57 @@ const PLATFORMS: { id: Platform | "all"; label: string }[] = [
   { id: "linkedin", label: "LinkedIn" },
 ];
 
+interface TooltipPayloadItem {
+  payload: {
+    platform: Platform;
+    count: number;
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+}
+
+function CustomPlatformTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+}) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-lg text-xs space-y-2 min-w-[170px]">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+          <PlatformBadge platform={data.platform} />
+          <span className="font-mono font-semibold text-slate-800">{data.count} comments</span>
+        </div>
+        <div className="space-y-1 text-[11px]">
+          <div className="flex items-center justify-between">
+            <span className="text-emerald-700 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Positive:
+            </span>
+            <span className="font-mono font-bold text-emerald-800">{data.positive}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-slate-400" /> Neutral:
+            </span>
+            <span className="font-mono font-bold text-slate-700">{data.neutral}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-rose-700 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500" /> Negative:
+            </span>
+            <span className="font-mono font-bold text-rose-800">{data.negative}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function OverviewPage() {
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
@@ -52,6 +107,7 @@ export default function OverviewPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("2026-11-01");
   const [endDate, setEndDate] = useState<string>("2026-11-22");
+  const [chartView, setChartView] = useState<"platform" | "sentiment">("platform");
   const [isPending, startTransition] = useTransition();
 
   const fetchMetrics = async () => {
@@ -117,20 +173,38 @@ export default function OverviewPage() {
       {/* Filter Toolbar */}
       <div className="bg-white p-3.5 md:p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center gap-3">
         {/* Platform Selector */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-          {PLATFORMS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedPlatform(p.id)}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                selectedPlatform === p.id
-                  ? "bg-white text-blue-700 shadow-2xs font-semibold"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          {PLATFORMS.map((p) => {
+            const isSelected = selectedPlatform === p.id;
+            let activeStyle = "bg-white text-slate-800 shadow-2xs font-semibold border border-slate-200";
+            let hoverStyle = "text-slate-600 hover:text-slate-900";
+            if (p.id === "instagram") {
+              activeStyle = "bg-pink-50 text-pink-600 border border-pink-200 shadow-2xs font-semibold";
+              hoverStyle = "text-slate-600 hover:text-pink-600";
+            } else if (p.id === "youtube") {
+              activeStyle = "bg-red-50 text-red-600 border border-red-200 shadow-2xs font-semibold";
+              hoverStyle = "text-slate-600 hover:text-red-600";
+            } else if (p.id === "facebook") {
+              activeStyle = "bg-blue-950/10 text-blue-950 border border-blue-900/30 shadow-2xs font-semibold";
+              hoverStyle = "text-slate-600 hover:text-blue-950";
+            } else if (p.id === "linkedin") {
+              activeStyle = "bg-blue-50 text-blue-600 border border-blue-200 shadow-2xs font-semibold";
+              hoverStyle = "text-slate-600 hover:text-blue-600";
+            }
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPlatform(p.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all ${
+                  isSelected ? activeStyle : hoverStyle
+                }`}
+              >
+                {p.id !== "all" && <PlatformIcon platform={p.id} className="w-3.5 h-3.5" />}
+                {p.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Account Selector */}
@@ -284,24 +358,83 @@ export default function OverviewPage() {
         </div>
 
         {/* Comments by Platform */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900 mb-1">
-            Platform Volume & Sentiment
-          </h2>
-          <p className="text-xs text-slate-400 mb-4">Total extracted comments grouped by platform</p>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs lg:col-span-2 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">
+                Platform Volume & Sentiment
+              </h2>
+              <p className="text-xs text-slate-400">
+                {chartView === "platform"
+                  ? "Total extracted comments colored by social brand identity"
+                  : "Audience sentiment distribution (Positive, Neutral, Negative) per platform"}
+              </p>
+            </div>
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setChartView("platform")}
+                className={`px-2.5 py-1 rounded-md transition-all font-medium ${
+                  chartView === "platform"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Social Brand Colors
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartView("sentiment")}
+                className={`px-2.5 py-1 rounded-md transition-all font-medium ${
+                  chartView === "sentiment"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Sentiment Split
+              </button>
+            </div>
+          </div>
+
           <div className="h-56 w-full">
             {metrics && metrics.commentsByPlatform && metrics.commentsByPlatform.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metrics.commentsByPlatform}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="platform" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip />
-                  <Legend />
-                  <Bar dataKey="positive" name="Positive" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="neutral" name="Neutral" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="negative" name="Negative" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                {chartView === "platform" ? (
+                  <BarChart data={metrics.commentsByPlatform} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="platform"
+                      tickFormatter={(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
+                      tick={{ fontSize: 11, fontWeight: 500 }}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <RechartsTooltip content={<CustomPlatformTooltip />} />
+                    <Bar dataKey="count" name="Total Comments" radius={[5, 5, 0, 0]}>
+                      {metrics.commentsByPlatform.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={SOCIAL_COLORS[entry.platform] || "#64748b"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                ) : (
+                  <BarChart data={metrics.commentsByPlatform} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="platform"
+                      tickFormatter={(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
+                      tick={{ fontSize: 11 }}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <RechartsTooltip />
+                    <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                    <Bar dataKey="positive" name="Positive" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="neutral" name="Neutral" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="negative" name="Negative" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-xs text-slate-400">
@@ -309,6 +442,28 @@ export default function OverviewPage() {
               </div>
             )}
           </div>
+
+          {/* Social Color Legend */}
+          {chartView === "platform" && (
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-3 pt-2 border-t border-slate-100 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#ec4899] inline-block shadow-2xs" />
+                <span className="text-slate-700 font-medium text-[11px]">Instagram (Pink)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#dc2626] inline-block shadow-2xs" />
+                <span className="text-slate-700 font-medium text-[11px]">YouTube (Red)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1e3a8a] inline-block shadow-2xs" />
+                <span className="text-slate-700 font-medium text-[11px]">Facebook (Dark Blue)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#2563eb] inline-block shadow-2xs" />
+                <span className="text-slate-700 font-medium text-[11px]">LinkedIn (Blue)</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
