@@ -149,6 +149,55 @@ async function executeBatchRun(
 
         // Fetch dataset items
         rawItems = await getDatasetItems(datasetId, { limit: 100 });
+
+        // For YouTube: also scrape actual comments using streamers/youtube-comments-scraper
+        if (account.platform === "youtube") {
+          const videoUrls: { url: string }[] = [];
+          for (const item of rawItems) {
+            const vUrl =
+              typeof item.url === "string" && item.url.includes("watch")
+                ? item.url
+                : typeof item.id === "string" && item.id.length > 5
+                ? `https://www.youtube.com/watch?v=${item.id}`
+                : null;
+            if (vUrl && !videoUrls.some((u) => u.url === vUrl)) {
+              videoUrls.push({ url: vUrl });
+            }
+          }
+
+          // If handle or profile URL itself is a video
+          const directUrl = (account.profileUrl && account.profileUrl.includes("watch"))
+            ? account.profileUrl
+            : (account.handle && account.handle.includes("watch"))
+            ? account.handle
+            : null;
+          if (directUrl && !videoUrls.some((u) => u.url === directUrl)) {
+            videoUrls.push({ url: directUrl });
+          }
+
+          if (videoUrls.length > 0) {
+            try {
+              const topVideos = videoUrls.slice(0, 5);
+              const commentsRun = await runActor(
+                "streamers/youtube-comments-scraper",
+                {
+                  startUrls: topVideos,
+                  maxComments: 50,
+                },
+                { waitForFinish: 90 }
+              );
+
+              if (commentsRun.defaultDatasetId) {
+                const commentItems = await getDatasetItems(commentsRun.defaultDatasetId, { limit: 100 });
+                if (Array.isArray(commentItems) && commentItems.length > 0) {
+                  rawItems = [...rawItems, ...commentItems];
+                }
+              }
+            } catch (ytCommErr) {
+              console.warn("YouTube comments scraper error (continuing with video metadata):", ytCommErr);
+            }
+          }
+        }
       } else {
         throw new Error("APIFY_API_TOKEN is not configured. Please add your token in settings or .env.local.");
       }
