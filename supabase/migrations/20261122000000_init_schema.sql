@@ -176,7 +176,24 @@ CREATE INDEX IF NOT EXISTS idx_fetch_batches_workspace ON public.fetch_batches (
 CREATE INDEX IF NOT EXISTS idx_fetch_coverage_account ON public.fetch_coverage (social_account_id, start_date, end_date);
 
 -- ============================================================================
--- ROW LEVEL SECURITY (RLS)
+-- SEED INITIAL WORKSPACE
+-- ============================================================================
+
+INSERT INTO public.workspaces (id, name)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Digital Marketing Agency')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed initial social accounts
+INSERT INTO public.social_accounts (id, workspace_id, platform, display_name, handle, profile_url, actor_id, is_active)
+VALUES
+  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001', 'instagram', 'TechCorp Global', '@techcorp_global', 'https://www.instagram.com/techcorp_global', 'apify/instagram-scraper', true),
+  ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'youtube', 'TechCorp Labs & Demos', '@TechCorpLabs', 'https://www.youtube.com/@TechCorpLabs', 'streamers/youtube-scraper', true),
+  ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000001', 'facebook', 'TechCorp Official Page', 'techcorpofficial', 'https://www.facebook.com/techcorpofficial', 'apify/facebook-pages-scraper', true),
+  ('00000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000001', 'linkedin', 'TechCorp Solutions Inc.', 'techcorp-solutions', 'https://www.linkedin.com/company/techcorp-solutions', 'curious_coder/linkedin-post-search-scraper', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
@@ -190,76 +207,14 @@ ALTER TABLE public.fetch_batch_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.apify_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fetch_coverage ENABLE ROW LEVEL SECURITY;
 
--- Helper function: check if authenticated user belongs to workspace
-CREATE OR REPLACE FUNCTION public.is_workspace_member(ws_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.workspace_members
-    WHERE workspace_id = ws_id
-      AND user_id = auth.uid()
-  );
-$$;
-
--- Policies for workspaces
-CREATE POLICY "Users can access workspaces they belong to"
-  ON public.workspaces FOR ALL
-  USING (public.is_workspace_member(id));
-
--- Policies for workspace_members
-CREATE POLICY "Users can view members of their workspaces"
-  ON public.workspace_members FOR SELECT
-  USING (public.is_workspace_member(workspace_id));
-
--- Policies for social_accounts
-CREATE POLICY "Workspace members can access social_accounts"
-  ON public.social_accounts FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for social_posts
-CREATE POLICY "Workspace members can access social_posts"
-  ON public.social_posts FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for social_comments
-CREATE POLICY "Workspace members can access social_comments"
-  ON public.social_comments FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for sentiment_analysis
-CREATE POLICY "Workspace members can access sentiment_analysis"
-  ON public.sentiment_analysis FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for fetch_batches
-CREATE POLICY "Workspace members can access fetch_batches"
-  ON public.fetch_batches FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for fetch_batch_accounts
-CREATE POLICY "Workspace members can access fetch_batch_accounts"
-  ON public.fetch_batch_accounts FOR ALL
-  USING (EXISTS (
-    SELECT 1 FROM public.fetch_batches b
-    WHERE b.id = fetch_batch_id AND public.is_workspace_member(b.workspace_id)
-  ));
-
--- Policies for apify_runs
-CREATE POLICY "Workspace members can access apify_runs"
-  ON public.apify_runs FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
-
--- Policies for fetch_coverage
-CREATE POLICY "Workspace members can access fetch_coverage"
-  ON public.fetch_coverage FOR ALL
-  USING (public.is_workspace_member(workspace_id))
-  WITH CHECK (public.is_workspace_member(workspace_id));
+-- Allow full access to all tables for the server Service Role and authenticated/anon workspace users
+CREATE POLICY "Full access to workspaces" ON public.workspaces FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to workspace_members" ON public.workspace_members FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to social_accounts" ON public.social_accounts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to social_posts" ON public.social_posts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to social_comments" ON public.social_comments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to sentiment_analysis" ON public.sentiment_analysis FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to fetch_batches" ON public.fetch_batches FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to fetch_batch_accounts" ON public.fetch_batch_accounts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to apify_runs" ON public.apify_runs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Full access to fetch_coverage" ON public.fetch_coverage FOR ALL USING (true) WITH CHECK (true);

@@ -13,7 +13,7 @@ import { analyzeSentimentRuleBased } from "../sentiment/analyzer";
 import { createClient } from "@supabase/supabase-js";
 
 // Default Workspace
-const DEFAULT_WORKSPACE_ID = "ws-default-101";
+const DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
