@@ -10,11 +10,18 @@ import {
 } from "@/types";
 import { generateFeedbackSummary } from "../sentiment/summary-generator";
 import { analyzeSentimentRuleBased } from "../sentiment/analyzer";
+import { createClient } from "@supabase/supabase-js";
 
 // Default Workspace
 const DEFAULT_WORKSPACE_ID = "ws-default-101";
 
-// Realistic Seed Accounts
+// Initialize Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+// Realistic Seed Accounts for Initial Workspace
 let mockAccounts: SocialAccount[] = [
   {
     id: "acc-ig-1",
@@ -394,15 +401,78 @@ let mockBatches: FetchBatch[] = [
   },
 ];
 
-// Data Repository methods
 export const db = {
   getDefaultWorkspaceId: () => DEFAULT_WORKSPACE_ID,
 
   async getAccounts(workspaceId: string = DEFAULT_WORKSPACE_ID): Promise<SocialAccount[]> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from("social_accounts").select("*");
+        if (!error && data && data.length > 0) {
+          return data.map((r) => ({
+            id: r.id,
+            workspaceId: r.workspace_id,
+            platform: r.platform,
+            displayName: r.display_name,
+            handle: r.handle,
+            profileUrl: r.profile_url,
+            externalAccountId: r.external_account_id,
+            actorId: r.actor_id,
+            isActive: r.is_active,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+            lastFetchedAt: r.last_fetched_at,
+          }));
+        }
+      } catch (err) {
+        // Fall back to seed accounts
+      }
+    }
     return [...mockAccounts.filter((a) => a.workspaceId === workspaceId)];
   },
 
   async addAccount(accountData: Omit<SocialAccount, "id" | "createdAt" | "updatedAt">): Promise<SocialAccount> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("social_accounts")
+          .insert({
+            workspace_id: accountData.workspaceId,
+            platform: accountData.platform,
+            display_name: accountData.displayName,
+            handle: accountData.handle,
+            profile_url: accountData.profileUrl,
+            external_account_id: accountData.externalAccountId,
+            actor_id: accountData.actorId,
+            is_active: accountData.isActive,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          const acc: SocialAccount = {
+            id: data.id,
+            workspaceId: data.workspace_id,
+            platform: data.platform,
+            displayName: data.display_name,
+            handle: data.handle,
+            profileUrl: data.profile_url,
+            externalAccountId: data.external_account_id,
+            actorId: data.actor_id,
+            isActive: data.is_active,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+            postCount: 0,
+            commentCount: 0,
+          };
+          mockAccounts.push(acc);
+          return acc;
+        }
+      } catch (err) {
+        // Fall back
+      }
+    }
+
     const newAccount: SocialAccount = {
       ...accountData,
       id: `acc-${Date.now()}`,
@@ -416,6 +486,22 @@ export const db = {
   },
 
   async updateAccount(id: string, updates: Partial<SocialAccount>): Promise<SocialAccount | null> {
+    if (supabase) {
+      try {
+        const updatePayload: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (updates.displayName !== undefined) updatePayload.display_name = updates.displayName;
+        if (updates.handle !== undefined) updatePayload.handle = updates.handle;
+        if (updates.profileUrl !== undefined) updatePayload.profile_url = updates.profileUrl;
+        if (updates.externalAccountId !== undefined) updatePayload.external_account_id = updates.externalAccountId;
+        if (updates.actorId !== undefined) updatePayload.actor_id = updates.actorId;
+        if (updates.isActive !== undefined) updatePayload.is_active = updates.isActive;
+
+        await supabase.from("social_accounts").update(updatePayload).eq("id", id);
+      } catch {}
+    }
+
     const index = mockAccounts.findIndex((a) => a.id === id);
     if (index === -1) return null;
     mockAccounts[index] = {
@@ -427,17 +513,80 @@ export const db = {
   },
 
   async deleteAccount(id: string): Promise<boolean> {
+    if (supabase) {
+      try {
+        await supabase.from("social_accounts").delete().eq("id", id);
+      } catch {}
+    }
     const initialLength = mockAccounts.length;
     mockAccounts = mockAccounts.filter((a) => a.id !== id);
     return mockAccounts.length < initialLength;
   },
 
   async getCoverages(workspaceId: string = DEFAULT_WORKSPACE_ID): Promise<FetchCoverage[]> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from("fetch_coverage").select("*");
+        if (!error && data && data.length > 0) {
+          return data.map((r) => ({
+            id: r.id,
+            workspaceId: r.workspace_id,
+            socialAccountId: r.social_account_id,
+            platform: r.platform,
+            startDate: r.start_date,
+            endDate: r.end_date,
+            coverageStatus: r.coverage_status,
+            actorId: r.actor_id,
+            lastFetchBatchId: r.last_fetch_batch_id,
+            completedAt: r.completed_at,
+            postsCount: r.posts_count,
+            commentsCount: r.comments_count,
+            configurationVersion: r.configuration_version,
+          }));
+        }
+      } catch {}
+    }
     return [...mockCoverages.filter((c) => c.workspaceId === workspaceId)];
   },
 
   async recordCoverage(coverage: Omit<FetchCoverage, "id">): Promise<FetchCoverage> {
-    // Check if matching coverage already exists for account & date range
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from("fetch_coverage").insert({
+          workspace_id: coverage.workspaceId,
+          social_account_id: coverage.socialAccountId,
+          platform: coverage.platform,
+          start_date: coverage.startDate,
+          end_date: coverage.endDate,
+          coverage_status: coverage.coverageStatus,
+          actor_id: coverage.actorId,
+          last_fetch_batch_id: coverage.lastFetchBatchId,
+          completed_at: new Date().toISOString(),
+          posts_count: coverage.postsCount,
+          comments_count: coverage.commentsCount,
+          configuration_version: coverage.configurationVersion,
+        }).select().single();
+
+        if (!error && data) {
+          return {
+            id: data.id,
+            workspaceId: data.workspace_id,
+            socialAccountId: data.social_account_id,
+            platform: data.platform,
+            startDate: data.start_date,
+            endDate: data.end_date,
+            coverageStatus: data.coverage_status,
+            actorId: data.actor_id,
+            lastFetchBatchId: data.last_fetch_batch_id,
+            completedAt: data.completed_at,
+            postsCount: data.posts_count,
+            commentsCount: data.comments_count,
+            configurationVersion: data.configuration_version,
+          };
+        }
+      } catch {}
+    }
+
     const existingIndex = mockCoverages.findIndex(
       (c) =>
         c.socialAccountId === coverage.socialAccountId &&
@@ -464,6 +613,28 @@ export const db = {
   },
 
   async getBatches(workspaceId: string = DEFAULT_WORKSPACE_ID): Promise<FetchBatch[]> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from("fetch_batches").select("*").order("created_at", { ascending: false });
+        if (!error && data && data.length > 0) {
+          return data.map((b) => ({
+            id: b.id,
+            workspaceId: b.workspace_id,
+            requestedBy: b.requested_by,
+            startDate: b.start_date,
+            endDate: b.end_date,
+            timezone: b.timezone,
+            status: b.status,
+            refreshRequested: b.refresh_requested,
+            createdAt: b.created_at,
+            startedAt: b.started_at,
+            completedAt: b.completed_at,
+            errorMessage: b.error_message,
+          }));
+        }
+      } catch {}
+    }
+
     return [...mockBatches.filter((b) => b.workspaceId === workspaceId)].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -473,10 +644,10 @@ export const db = {
     const batch = mockBatches.find((b) => b.id === id);
     if (!batch) return null;
 
-    // Attach socialAccount detail to batch accounts
+    const accounts = await this.getAccounts();
     const enrichedAccounts = batch.accounts?.map((acc) => ({
       ...acc,
-      socialAccount: mockAccounts.find((a) => a.id === acc.socialAccountId),
+      socialAccount: accounts.find((a) => a.id === acc.socialAccountId),
     }));
 
     return {
@@ -555,7 +726,6 @@ export const db = {
       );
 
       if (existingIndex >= 0) {
-        // Keep existing manual sentiment if present
         const currentSentiment = mockComments[existingIndex].sentiment;
         mockComments[existingIndex] = {
           ...mockComments[existingIndex],
@@ -565,7 +735,6 @@ export const db = {
         };
         result.push(mockComments[existingIndex]);
       } else {
-        // Run sentiment analysis on new comment
         const sentimentResult = analyzeSentimentRuleBased(comment.commentText);
         const newComment: SocialComment = {
           ...comment,
@@ -657,9 +826,9 @@ export const db = {
     const offset = options?.offset || 0;
     const limit = options?.limit || 50;
 
-    // Enrich with account and post
+    const accounts = await this.getAccounts();
     const enriched = list.slice(offset, offset + limit).map((c) => {
-      const account = mockAccounts.find((a) => a.id === c.socialAccountId);
+      const account = accounts.find((a) => a.id === c.socialAccountId);
       const post = mockPosts.find((p) => p.id === c.socialPostId);
       return {
         ...c,
@@ -733,7 +902,6 @@ export const db = {
       { name: "Neutral", value: neutralCount, color: "#94a3b8" },
     ];
 
-    // Comments by platform
     const platforms: Platform[] = ["instagram", "facebook", "youtube", "linkedin"];
     const commentsByPlatform = platforms.map((p) => {
       const platComments = comments.filter((c) => c.platform === p);
@@ -746,7 +914,6 @@ export const db = {
       };
     });
 
-    // Trend grouping by date
     const dateMap: Record<string, { comments: number; positive: number; negative: number; neutral: number }> = {};
     for (const c of comments) {
       const dateStr = c.publishedAt ? c.publishedAt.slice(0, 10) : "2026-11-15";
