@@ -198,6 +198,40 @@ async function executeBatchRun(
             }
           }
         }
+
+        // For Facebook: also attempt comments extraction for public posts
+        if (account.platform === "facebook") {
+          const postUrls: { url: string }[] = [];
+          for (const item of rawItems) {
+            if (typeof item.url === "string" && (item.url.includes("/posts/") || item.url.includes("/reel/"))) {
+              postUrls.push({ url: item.url });
+            }
+          }
+          if (postUrls.length > 0) {
+            try {
+              const commentsRun = await runActor(
+                "apify/facebook-comments-scraper",
+                {
+                  startUrls: postUrls.slice(0, 5),
+                  resultsLimit: 20,
+                  includeNestedComments: true,
+                },
+                { waitForFinish: 60 }
+              );
+              if (commentsRun.defaultDatasetId) {
+                const commentItems = await getDatasetItems(commentsRun.defaultDatasetId, { limit: 50 });
+                if (Array.isArray(commentItems) && commentItems.length > 0) {
+                  const validComments = commentItems.filter((c) => !c.error && (c.text || c.message));
+                  if (validComments.length > 0) {
+                    rawItems = [...rawItems, ...validComments];
+                  }
+                }
+              }
+            } catch (fbCommErr) {
+              console.warn("Facebook comments scraper notice (continuing with posts):", fbCommErr);
+            }
+          }
+        }
       } else {
         throw new Error("APIFY_API_TOKEN is not configured. Please add your token in settings or .env.local.");
       }

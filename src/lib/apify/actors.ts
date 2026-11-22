@@ -40,22 +40,21 @@ export const PLATFORM_ACTORS: Record<Platform, ActorConfig> = {
   },
   facebook: {
     platform: 'facebook',
-    actorId: 'apify/facebook-pages-scraper',
-    name: 'Facebook Pages Scraper',
-    description: 'Extracts public Facebook page posts and top comments.',
-    docsUrl: 'https://apify.com/apify/facebook-pages-scraper',
-    extracts: 'both',
+    actorId: 'apify/facebook-posts-scraper',
+    name: 'Facebook Posts Scraper',
+    description: 'Extracts public Facebook page posts and media.',
+    docsUrl: 'https://apify.com/apify/facebook-posts-scraper',
+    extracts: 'posts',
     supportsDateFiltering: true,
     defaultLimit: 30,
     inputTemplate: ({ handleOrUrl, startDate, endDate, maxItems = 30 }) => ({
       startUrls: [{ url: handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.facebook.com/${handleOrUrl.replace(/^@/, '')}` }],
-      maxPosts: maxItems,
-      onlyPostsNewerThan: startDate,
-      onlyPostsOlderThan: endDate,
-      commentsMode: 'RANKED_UNFILTERED',
-      maxComments: 25,
+      resultsLimit: maxItems,
+      captionText: true,
+      ...(startDate ? { onlyPostsNewerThan: startDate } : {}),
+      ...(endDate ? { onlyPostsOlderThan: endDate } : {}),
     }),
-    notes: 'Public pages only. Profile extraction is not supported due to platform restrictions.'
+    notes: 'Public pages only. Extracts post text, images, reactions, and direct links.'
   },
   youtube: {
     platform: 'youtube',
