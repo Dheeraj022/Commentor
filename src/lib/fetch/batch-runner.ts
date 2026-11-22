@@ -172,26 +172,43 @@ async function executeBatchRun(
       );
 
       const savedComments = await db.upsertComments(
-        comments.map((c) => ({
-          workspaceId: account.workspaceId,
-          socialAccountId: account.id,
-          socialPostId: savedPosts[0]?.id || null,
-          platform: account.platform,
-          externalCommentId: c.externalCommentId,
-          parentExternalCommentId: c.parentExternalCommentId,
-          commentText: c.commentText,
-          authorName: c.authorName,
-          authorProfileUrl: c.authorProfileUrl,
-          commentUrl: c.commentUrl,
-          publishedAt: c.publishedAt,
-          likeCount: c.likeCount,
-          replyCount: c.replyCount,
-          rawData: c.rawData,
-        }))
+        comments.map((c) => {
+          const matchingPost = savedPosts.find((p) => p.externalPostId === c.externalPostId);
+          return {
+            workspaceId: account.workspaceId,
+            socialAccountId: account.id,
+            socialPostId: matchingPost?.id || savedPosts[0]?.id || null,
+            platform: account.platform,
+            externalCommentId: c.externalCommentId,
+            parentExternalCommentId: c.parentExternalCommentId,
+            commentText: c.commentText,
+            authorName: c.authorName,
+            authorProfileUrl: c.authorProfileUrl,
+            commentUrl: c.commentUrl,
+            publishedAt: c.publishedAt,
+            likeCount: c.likeCount,
+            replyCount: c.replyCount,
+            rawData: c.rawData,
+          };
+        })
       );
 
       totalPosts += savedPosts.length;
       totalComments += savedComments.length;
+
+      if (batchAccount) {
+        batchAccount.status = "completed";
+        batchAccount.coverageStatus = "complete";
+        batchAccount.postsCount = savedPosts.length;
+        batchAccount.commentsCount = savedComments.length;
+      }
+
+      // Live update batch immediately so frontend polling sees live count updates
+      await db.updateBatch(batch.id, {
+        postsFetched: totalPosts,
+        commentsFetched: totalComments,
+        accounts: updatedBatchAccounts,
+      });
 
       // Update account's last fetched at
       await db.updateAccount(account.id, {

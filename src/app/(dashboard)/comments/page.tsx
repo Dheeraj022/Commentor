@@ -38,8 +38,8 @@ export default function AllCommentsPage() {
   // Detail Modal
   const [selectedComment, setSelectedComment] = useState<SocialComment | null>(null);
 
-  const fetchComments = async () => {
-    setLoading(true);
+  const fetchComments = async (silent: boolean = false) => {
+    if (!silent) setLoading(true);
     try {
       const query = new URLSearchParams();
       query.set("page", page.toString());
@@ -60,7 +60,7 @@ export default function AllCommentsPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -75,6 +75,14 @@ export default function AllCommentsPage() {
   useEffect(() => {
     fetchComments();
   }, [page, selectedPlatform, selectedAccountId, selectedSentiment, startDate, endDate]);
+
+  // Periodic live check for incoming comments
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchComments(true);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [page, searchQuery, selectedPlatform, selectedAccountId, selectedSentiment, startDate, endDate]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,11 +138,15 @@ export default function AllCommentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live Sync Active ({total} comments)</span>
+          </div>
           <button
-            onClick={() => fetchComments()}
+            onClick={() => fetchComments(false)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-2xs"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-blue-600" : ""}`} />
             Refresh
           </button>
           <button

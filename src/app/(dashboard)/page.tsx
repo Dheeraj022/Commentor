@@ -108,10 +108,12 @@ export default function OverviewPage() {
   const [startDate, setStartDate] = useState<string>("2026-11-01");
   const [endDate, setEndDate] = useState<string>("2026-11-22");
   const [chartView, setChartView] = useState<"platform" | "sentiment">("platform");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastSyncTime, setLastSyncTime] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
-  const fetchMetrics = async () => {
-    setLoading(true);
+  const fetchMetrics = async (silent: boolean = false) => {
+    if (!silent) setLoading(true);
     try {
       const query = new URLSearchParams();
       if (selectedPlatform !== "all") query.set("platform", selectedPlatform);
@@ -129,16 +131,26 @@ export default function OverviewPage() {
 
       if (dataMetrics.success) setMetrics(dataMetrics.metrics);
       if (dataAccounts.success) setAccounts(dataAccounts.accounts);
+      setLastSyncTime(new Date().toLocaleTimeString());
     } catch (err) {
       console.error("Error fetching overview metrics:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchMetrics();
   }, [selectedPlatform, selectedAccountId, startDate, endDate]);
+
+  // Live real-time polling every 5 seconds
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      fetchMetrics(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, selectedPlatform, selectedAccountId, startDate, endDate]);
 
   return (
     <div className="space-y-6">
@@ -153,8 +165,27 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Live Sync Status Pill */}
           <button
-            onClick={() => fetchMetrics()}
+            type="button"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            title={autoRefresh ? "Click to pause live updates" : "Click to enable live updates"}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-colors ${
+              autoRefresh
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-slate-100 text-slate-600 border-slate-200"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                autoRefresh ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+              }`}
+            />
+            <span>{autoRefresh ? "Live Sync Active" : "Live Sync Paused"}</span>
+          </button>
+
+          <button
+            onClick={() => fetchMetrics(false)}
             disabled={loading}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-2xs"
           >

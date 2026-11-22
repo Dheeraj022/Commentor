@@ -130,7 +130,7 @@ export default function FetchCommentsPage() {
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [polling, activeBatch]);
@@ -399,13 +399,16 @@ export default function FetchCommentsPage() {
 
           {/* Active Job Tracker */}
           {activeBatch && (
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  Live Extraction Monitor
-                </h3>
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${activeBatch.status === "completed" ? "bg-emerald-500" : activeBatch.status === "failed" ? "bg-rose-500" : "bg-blue-600 animate-pulse"}`} />
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Live Extraction Monitor
+                  </h3>
+                </div>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                     activeBatch.status === "completed"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : activeBatch.status === "failed"
@@ -417,27 +420,84 @@ export default function FetchCommentsPage() {
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs text-slate-600">
-                  <span>Posts Extracted:</span>
-                  <span className="font-bold text-slate-900">{activeBatch.postsFetched || 0}</span>
+              {/* Progress Counters */}
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100 text-center">
+                <div>
+                  <span className="text-[11px] text-slate-500 block">Posts Extracted</span>
+                  <span className="text-xl font-bold text-slate-900 font-mono">
+                    {activeBatch.postsFetched || 0}
+                  </span>
                 </div>
-                <div className="flex justify-between text-xs text-slate-600">
-                  <span>Comments Analyzed:</span>
-                  <span className="font-bold text-slate-900">{activeBatch.commentsFetched || 0}</span>
+                <div>
+                  <span className="text-[11px] text-slate-500 block">Comments Analyzed</span>
+                  <span className="text-xl font-bold text-blue-600 font-mono">
+                    {activeBatch.commentsFetched || 0}
+                  </span>
                 </div>
+              </div>
 
-                {activeBatch.status === "completed" && (
-                  <div className="pt-2">
+              {/* Per-Account Progress */}
+              {activeBatch.accounts && activeBatch.accounts.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Target Accounts
+                  </span>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {activeBatch.accounts.map((a) => (
+                      <div
+                        key={a.id}
+                        className="p-2.5 rounded-lg bg-white border border-slate-200 text-xs flex items-center justify-between gap-2 shadow-2xs"
+                      >
+                        <div className="truncate">
+                          <span className="font-semibold text-slate-800 block truncate">
+                            {a.socialAccount?.displayName || a.socialAccountId}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {a.postsCount || 0} posts • {a.commentsCount || 0} comments
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase shrink-0 ${
+                            a.status === "completed"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : a.status === "running"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {a.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions when done */}
+              {["completed", "partially_completed"].includes(activeBatch.status) && (
+                <div className="pt-2 space-y-2 border-t border-slate-100">
+                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>
+                      Extraction complete! Extracted <b>{activeBatch.postsFetched || 0}</b> posts and <b>{activeBatch.commentsFetched || 0}</b> comments.
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                     <Link
                       href="/comments"
-                      className="w-full py-2 text-xs font-semibold text-center block rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                      className="py-2 text-xs font-semibold text-center block rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
                     >
-                      View Extracted Comments →
+                      View Comments →
+                    </Link>
+                    <Link
+                      href="/"
+                      className="py-2 text-xs font-semibold text-center block rounded-lg bg-slate-900 hover:bg-slate-800 text-white shadow-2xs"
+                    >
+                      Dashboard Overview →
                     </Link>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </div>
