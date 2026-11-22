@@ -183,15 +183,6 @@ INSERT INTO public.workspaces (id, name)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Digital Marketing Agency')
 ON CONFLICT (id) DO NOTHING;
 
--- Seed initial social accounts
-INSERT INTO public.social_accounts (id, workspace_id, platform, display_name, handle, profile_url, actor_id, is_active)
-VALUES
-  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001', 'instagram', 'TechCorp Global', '@techcorp_global', 'https://www.instagram.com/techcorp_global', 'apify/instagram-scraper', true),
-  ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'youtube', 'TechCorp Labs & Demos', '@TechCorpLabs', 'https://www.youtube.com/@TechCorpLabs', 'streamers/youtube-scraper', true),
-  ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000001', 'facebook', 'TechCorp Official Page', 'techcorpofficial', 'https://www.facebook.com/techcorpofficial', 'apify/facebook-pages-scraper', true),
-  ('00000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000001', 'linkedin', 'TechCorp Solutions Inc.', 'techcorp-solutions', 'https://www.linkedin.com/company/techcorp-solutions', 'curious_coder/linkedin-post-search-scraper', true)
-ON CONFLICT (id) DO NOTHING;
-
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================

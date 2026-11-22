@@ -150,8 +150,7 @@ async function executeBatchRun(
         // Fetch dataset items
         rawItems = await getDatasetItems(datasetId, { limit: 100 });
       } else {
-        // High-fidelity fallback items for development and demonstration
-        rawItems = generatePlatformMockItems(account.platform, account.handle, startDate, endDate);
+        throw new Error("APIFY_API_TOKEN is not configured. Please add your token in settings or .env.local.");
       }
 
       // Normalize items
@@ -255,112 +254,4 @@ async function executeBatchRun(
   });
 }
 
-function generatePlatformMockItems(
-  platform: Platform,
-  handle: string,
-  startDate: string,
-  endDate: string
-): Record<string, unknown>[] {
-  const ts = new Date().toISOString();
-  if (platform === "instagram") {
-    return [
-      {
-        id: `ig_${Date.now()}_1`,
-        shortCode: `Cp${Math.random().toString(36).substring(6)}`,
-        caption: `Weekly product recap for ${handle}! Check out the latest AI updates. #AI #SaaS`,
-        timestamp: startDate ? `${startDate}T10:00:00Z` : ts,
-        type: "image",
-        latestComments: [
-          {
-            id: `ig_c_${Date.now()}_1`,
-            text: "Loving the new updates, extremely clean interface and fast response! 🙌",
-            ownerUsername: "alok_tech",
-            timestamp: ts,
-            likesCount: 12,
-          },
-          {
-            id: `ig_c_${Date.now()}_2`,
-            text: "Facing an issue while exporting PDF reports on Safari. Please check.",
-            ownerUsername: "neha_sharma",
-            timestamp: ts,
-            likesCount: 2,
-          },
-          {
-            id: `ig_c_${Date.now()}_3`,
-            text: "Kya ye feature Indian agencies ke liye accessible hai?",
-            ownerUsername: "digital_sharma",
-            timestamp: ts,
-            likesCount: 5,
-          },
-        ],
-      },
-    ];
-  }
 
-  if (platform === "youtube") {
-    return [
-      {
-        id: `yt_${Date.now()}_1`,
-        title: `Deep-Dive Social Monitoring Workflow with ${handle}`,
-        description: "In this session we go over caching strategies and automated comment classification.",
-        uploadDate: startDate ? `${startDate}T12:00:00Z` : ts,
-        comments: [
-          {
-            id: `yt_c_${Date.now()}_1`,
-            text: "Super helpful walkthrough! Maza aa gaya dekh ke. 🔥",
-            author: "CodeWithRohan",
-            likes: 19,
-            publishedTime: ts,
-          },
-          {
-            id: `yt_c_${Date.now()}_2`,
-            text: "Could you make a video on setting up Supabase RLS policies properly?",
-            author: "AnilDev",
-            likes: 6,
-            publishedTime: ts,
-          },
-        ],
-      },
-    ];
-  }
-
-  if (platform === "facebook") {
-    return [
-      {
-        id: `fb_${Date.now()}_1`,
-        text: `Big milestone reached this month! Thank you to all our agency partners using ${handle}.`,
-        time: startDate ? `${startDate}T08:00:00Z` : ts,
-        comments: [
-          {
-            id: `fb_c_${Date.now()}_1`,
-            text: "Congratulations team! Well deserved success. 🎉",
-            author: "Sunita Kapoor",
-            likes: 8,
-          },
-          {
-            id: `fb_c_${Date.now()}_2`,
-            text: "Customer support response time has been slow recently, please improve.",
-            author: "Rajesh Rao",
-            likes: 3,
-          },
-        ],
-      },
-    ];
-  }
-
-  return [
-    {
-      id: `li_${Date.now()}_1`,
-      text: `Optimizing agency overhead with smart comment analysis. Discover key patterns across your channels.`,
-      postedAt: startDate ? `${startDate}T09:30:00Z` : ts,
-      comments: [
-        {
-          id: `li_c_${Date.now()}_1`,
-          text: "Smart caching is indeed a game changer for scraping bill optimization. Well written!",
-          authorName: "Vikram Malhotra",
-          likesCount: 15,
-        },
-      ],
-    },
-  ];
-}
