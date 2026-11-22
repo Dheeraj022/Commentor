@@ -44,6 +44,34 @@ export interface SocialPost {
   lastFetchedAt: string;
 }
 
+export interface PostWithStats extends SocialPost {
+  thumbnailUrl?: string | null;
+  account?: {
+    id: string;
+    displayName: string;
+    handle: string;
+    platform: Platform;
+  } | null;
+  stats: {
+    totalComments: number;
+    positive: number;
+    neutral: number;
+    negative: number;
+    positiveRate: number;
+    negativeRate: number;
+    neutralRate: number;
+    dominantSentiment: "positive" | "negative" | "neutral" | "none";
+  };
+  comments?: SocialComment[];
+  commentsPreview?: {
+    id: string;
+    commentText: string;
+    authorName?: string | null;
+    publishedAt?: string | null;
+    sentimentLabel: SentimentLabel;
+  }[];
+}
+
 export interface SentimentData {
   id?: string;
   automatedLabel: SentimentLabel;

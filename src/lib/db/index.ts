@@ -3,6 +3,7 @@ import {
   SentimentLabel,
   SocialAccount,
   SocialPost,
+  PostWithStats,
   SocialComment,
   FetchBatch,
   FetchCoverage,
@@ -562,6 +563,173 @@ export const db = {
       }
     }
     return [...mockPosts];
+  },
+
+  async getPostsWithStats(options?: {
+    workspaceId?: string;
+    platform?: Platform | "all";
+    socialAccountId?: string;
+    sentiment?: SentimentLabel | "all";
+    startDate?: string;
+    endDate?: string;
+    searchQuery?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ posts: PostWithStats[]; total: number }> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from("social_posts")
+          .select(`
+            *,
+            account:social_accounts(id, display_name, handle, platform),
+            comments:social_comments(
+              id,
+              comment_text,
+              author_name,
+              author_profile_url,
+              published_at,
+              like_count,
+              sentiment:sentiment_analysis(automated_label, manual_label, confidence, reason)
+            )
+          `, { count: "exact" })
+          .order("published_at", { ascending: false, nullsFirst: false });
+
+        if (options?.platform && (options.platform as string) !== "all") {
+          query = query.eq("platform", options.platform);
+        }
+        if (options?.socialAccountId && options.socialAccountId !== "all") {
+          query = query.eq("social_account_id", options.socialAccountId);
+        }
+        if (options?.startDate) {
+          query = query.gte("published_at", options.startDate);
+        }
+        if (options?.endDate) {
+          query = query.lte("published_at", options.endDate + "T23:59:59.999Z");
+        }
+        if (options?.searchQuery) {
+          query = query.ilike("text_content", `%${options.searchQuery}%`);
+        }
+
+        const { data, count, error } = await query;
+        if (!error && data) {
+          let mapped: PostWithStats[] = data.map((p) => {
+            const rawComments = p.comments || [];
+            let positive = 0;
+            let negative = 0;
+            let neutral = 0;
+
+            const comments: SocialComment[] = rawComments.map((c: Record<string, unknown>) => {
+              const s = Array.isArray(c.sentiment) ? c.sentiment[0] : c.sentiment;
+              const label = (s?.manual_label || s?.automated_label || "neutral") as SentimentLabel;
+              if (label === "positive") positive++;
+              else if (label === "negative") negative++;
+              else neutral++;
+
+              return {
+                id: c.id as string,
+                workspaceId: p.workspace_id,
+                socialAccountId: p.social_account_id,
+                socialPostId: p.id,
+                platform: p.platform,
+                externalCommentId: (c.external_comment_id as string) || "",
+                commentText: (c.comment_text as string) || "",
+                authorName: (c.author_name as string) || null,
+                authorProfileUrl: (c.author_profile_url as string) || null,
+                publishedAt: (c.published_at as string) || null,
+                likeCount: (c.like_count as number) || 0,
+                firstFetchedAt: p.first_fetched_at,
+                lastFetchedAt: p.last_fetched_at,
+                sentiment: s ? {
+                  automatedLabel: s.automated_label,
+                  manualLabel: s.manual_label,
+                  confidence: Number(s.confidence || 0.9),
+                  reason: s.reason,
+                  analysisStatus: "completed" as const,
+                } : analyzeSentimentRuleBased((c.comment_text as string) || ""),
+              };
+            });
+
+            const totalComments = comments.length;
+            const positiveRate = totalComments > 0 ? Math.round((positive / totalComments) * 100) : 0;
+            const negativeRate = totalComments > 0 ? Math.round((negative / totalComments) * 100) : 0;
+            const neutralRate = totalComments > 0 ? Math.round((neutral / totalComments) * 100) : 0;
+
+            let dominantSentiment: "positive" | "negative" | "neutral" | "none" = "none";
+            if (totalComments > 0) {
+              if (positive >= negative && positive >= neutral && positive > 0) dominantSentiment = "positive";
+              else if (negative >= positive && negative >= neutral && negative > 0) dominantSentiment = "negative";
+              else dominantSentiment = "neutral";
+            }
+
+            const rawData = p.raw_data as Record<string, unknown> | undefined;
+            const thumbnailUrl = (typeof rawData?.displayUrl === "string" ? rawData.displayUrl : null) ||
+              (Array.isArray(rawData?.images) && typeof rawData.images[0] === "string" ? rawData.images[0] : null) ||
+              (typeof rawData?.thumbnailUrl === "string" ? rawData.thumbnailUrl : null);
+
+            return {
+              id: p.id,
+              workspaceId: p.workspace_id,
+              socialAccountId: p.social_account_id,
+              platform: p.platform,
+              externalPostId: p.external_post_id,
+              postUrl: p.post_url,
+              textContent: p.text_content,
+              publishedAt: p.published_at,
+              mediaType: p.media_type,
+              rawData: p.raw_data,
+              thumbnailUrl,
+              firstFetchedAt: p.first_fetched_at,
+              lastFetchedAt: p.last_fetched_at,
+              account: p.account ? {
+                id: p.account.id,
+                displayName: p.account.display_name,
+                handle: p.account.handle,
+                platform: p.account.platform,
+              } : null,
+              stats: {
+                totalComments,
+                positive,
+                neutral,
+                negative,
+                positiveRate,
+                negativeRate,
+                neutralRate,
+                dominantSentiment,
+              },
+              comments,
+              commentsPreview: comments.slice(0, 3).map((c) => ({
+                id: c.id,
+                commentText: c.commentText,
+                authorName: c.authorName,
+                publishedAt: c.publishedAt,
+                sentimentLabel: (c.sentiment?.manualLabel || c.sentiment?.automatedLabel || "neutral") as SentimentLabel,
+              })),
+            };
+          });
+
+          if (options?.sentiment && (options.sentiment as string) !== "all") {
+            mapped = mapped.filter((p) => {
+              if (options.sentiment === "positive") return p.stats.positive > 0;
+              if (options.sentiment === "negative") return p.stats.negative > 0;
+              if (options.sentiment === "neutral") return p.stats.neutral > 0;
+              return true;
+            });
+          }
+
+          const offset = options?.offset || 0;
+          const limit = options?.limit || 24;
+          return {
+            posts: mapped.slice(offset, offset + limit),
+            total: mapped.length,
+          };
+        }
+      } catch (err) {
+        console.error("Supabase getPostsWithStats error:", err);
+      }
+    }
+
+    return { posts: [], total: 0 };
   },
 
   async upsertPosts(posts: Omit<SocialPost, "id" | "firstFetchedAt" | "lastFetchedAt">[]): Promise<SocialPost[]> {
